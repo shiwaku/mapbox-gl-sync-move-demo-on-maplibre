@@ -1,0 +1,311 @@
+<html>
+
+<head>
+    <title>地理院タイルとCS立体図の乗算合成テスト</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css' rel='stylesheet' />
+    <script src="./mapbox-gl-sync-move.js"></script>
+    <div class="container">
+        <div id="mapBase"></div>
+        <div id="mapOverlay"></div>
+    </div>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .container>div {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #mapOverlay canvas {
+            mix-blend-mode: multiply;
+        }
+
+        #info {
+            padding: 6px 8px;
+            font: 12px/14px Arial, Helvetica, sans-serif;
+            color: navy;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            width: fit-content;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 2;
+        }
+
+        .yubi {
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .radio-button-container {
+            display: flex;
+            justify-content: start;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            margin-right: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        <details>
+            <summary class="yubi">
+                <strong>ブレンドモード(乗算合成)の種類</strong>
+            </summary>
+            <fieldset>
+                <div class="radio-button-container">
+                    <div class="column">
+                        <div>
+                            <input type="radio" id="multiply" name="blendMode" value="multiply" checked>
+                            <label for="multiply">Multiply</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="normal" name="blendMode" value="normal">
+                            <label for="normal">Normal</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="screen" name="blendMode" value="screen">
+                            <label for="screen">Screen</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="overlay" name="blendMode" value="overlay">
+                            <label for="overlay">Overlay</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="darken" name="blendMode" value="darken">
+                            <label for="darken">Darken</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="lighten" name="blendMode" value="lighten">
+                            <label for="lighten">Lighten</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="color-dodge" name="blendMode" value="color-dodge">
+                            <label for="color-dodge">Color Dodge</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="color-burn" name="blendMode" value="color-burn">
+                            <label for="color-burn">Color Burn</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="hard-light" name="blendMode" value="hard-light">
+                            <label for="hard-light">Hard Light</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="soft-light" name="blendMode" value="soft-light">
+                            <label for="soft-light">Soft Light</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="difference" name="blendMode" value="difference">
+                            <label for="difference">Difference</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="exclusion" name="blendMode" value="exclusion">
+                            <label for="exclusion">Exclusion</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="hue" name="blendMode" value="hue">
+                            <label for="hue">Hue</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="saturation" name="blendMode" value="saturation">
+                            <label for="saturation">Saturation</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="color" name="blendMode" value="color">
+                            <label for="color">Color</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="luminosity" name="blendMode" value="luminosity">
+                            <label for="luminosity">Luminosity</label>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+        </details>
+    </div>
+    <script type="module">
+        // ベースマップのスタイル
+        const BaseStyle = {
+            "version": 8,
+            "sources": {
+                "std": {
+                    "type": "raster",
+                    "tiles": [
+                        "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png"
+                    ],
+                    "attribution": "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>地理院タイル(標準地図)</a>"
+                }
+            },
+            "layers": [
+                {
+                    "id": "std",
+                    "type": "raster",
+                    "source": "std",
+                    "paint": {
+                        "raster-opacity": 1
+                    }
+                },
+            ]
+        };
+
+        // ベースマップの初期化
+        const mapBase = new maplibregl.Map({
+            container: 'mapBase',
+            // style: "building3d.json"
+            style: BaseStyle,
+            center: [137.08297, 37.43345],
+            zoom: 14.05,
+            minZoom: 1,
+            maxZoom: 23,
+            pitch: 0,
+            maxPitch: 85,
+            bearing: 0,
+            hash: true,
+            attributionControl: false
+        });
+
+        // オーバーレイマップのロード
+        mapBase.on('load', () => {
+            /*
+            // 標高タイルソース
+            mapBase.addSource("gsidem-terrain-rgb", {
+                type: 'raster-dem',
+                tiles: [
+                    'https://xs489works.xsrv.jp/raster-tiles/gsi/gsi-dem-terrain-rgb/{z}/{x}/{y}.png',
+                ],
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#dem" target="_blank">地理院タイル(標高タイル)</a>',
+                tileSize: 256
+            });
+
+            // 標高タイルセット
+            mapBase.setTerrain({ 'source': 'gsidem-terrain-rgb', 'exaggeration': 1 });
+            */
+        });
+
+        // オーバーレイマップのスタイル
+        const overlayStyle = {
+            "version": 8,
+            "sources": {},
+            "layers": []
+        };
+
+        // オーバーレイマップの初期化
+        const mapOverlay = new maplibregl.Map({
+            container: 'mapOverlay',
+            style: overlayStyle,
+            center: [137.08297, 37.43345],
+            zoom: 14.05,
+            minZoom: 1,
+            maxZoom: 23,
+            pitch: 0,
+            maxPitch: 85,
+            bearing: 0,
+            hash: true,
+            attributionControl: false
+        });
+
+        // ズーム・回転
+        mapOverlay.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        // フルスクリーンモードのオンオフ
+        mapOverlay.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+        // 現在位置表示
+        mapOverlay.addControl(new maplibregl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: false
+            },
+            fitBoundsOptions: { maxZoom: 18 },
+            trackUserLocation: true,
+            showUserLocation: true
+        }), 'top-right');
+
+        // スケール表示
+        mapOverlay.addControl(new maplibregl.ScaleControl({
+            maxWidth: 200,
+            unit: 'metric'
+        }));
+
+        // Attributionを折りたたみ表示
+        mapOverlay.addControl(new maplibregl.AttributionControl({
+            compact: true,
+            customAttribution: "<a href='https://maps.gsi.go.jp/vector/' target='_blank'>地理院地図Vector（仮称）</a> | <a href='https://twitter.com/shi__works' target='_blank'>Twitter</a> | <a href='https://github.com/shi-works/mapbox-gl-sync-move-demo-on-maplibre-gl-js' target='_blank'>Github</a>"
+        }));
+
+        // オーバーレイマップのロード
+        mapOverlay.on('load', () => {
+            /*
+            // 標高タイルソース
+            mapOverlay.addSource("gsidem-terrain-rgb", {
+                type: 'raster-dem',
+                tiles: [
+                    'https://xs489works.xsrv.jp/raster-tiles/gsi/gsi-dem-terrain-rgb/{z}/{x}/{y}.png',
+                ],
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#dem" target="_blank">地理院タイル(標高タイル)</a>',
+                tileSize: 256
+            });
+
+            // 標高タイルセット
+            mapOverlay.setTerrain({ 'source': 'gsidem-terrain-rgb', 'exaggeration': 1 });
+            */
+
+            // CS立体図ソース
+            mapOverlay.addSource("cs", {
+                "type": "raster",
+                "tiles": [
+                    "https://www2.ffpri.go.jp/soilmap/tile/cs_noto/{z}/{x}/{y}.png"
+                ],
+                "attribution": "<a href='https://www2.ffpri.go.jp/soilmap/data-src.html' target='_blank'>森林総合研究所 CS立体図(能登(石川県))</a>"
+            });
+            // CS立体図レイヤ
+            mapOverlay.addLayer({
+                "id": "cs-noto",
+                "type": "raster",
+                "source": "cs",
+                "paint": {
+                    "raster-opacity": 1
+                }
+            });
+        });
+
+        // 2つのマップを合成
+        syncMaps(mapBase, mapOverlay);
+
+        // ============================== ブレンドモードの切り替え制御 ==============================
+
+        // ラジオボタン要素を取得
+        var radios = document.querySelectorAll('input[type=radio][name="blendMode"]');
+
+        // 各ラジオボタンにイベントリスナーを設定
+        radios.forEach(radio => {
+            radio.addEventListener('change', function () {
+                var blendMode = this.value;
+                document.querySelector('#mapOverlay canvas').style.mixBlendMode = blendMode;
+            });
+        });
+
+    </script>
+</body>
+
+</html>
